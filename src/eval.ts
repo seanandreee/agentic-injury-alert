@@ -1,3 +1,4 @@
+import "dotenv/config";
 import OpenAI from "openai";
 import { config } from "./config.js";
 import type { InjuryReport } from "./types.js";

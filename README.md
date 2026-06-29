@@ -42,7 +42,7 @@ npm install
 
 ```bash
 pip install litellm
-litellm --model anthropic/claude-sonnet-4-20250514 --port 4000
+litellm --model anthropic/claude-sonnet-4-6 --port 4000
 ```
 
 Or with a config file for multiple models:
@@ -61,7 +61,7 @@ cp .env.example .env
 Required:
 - `LITELLM_API_KEY` — your LiteLLM proxy key (or upstream provider key)
 - `LITELLM_BASE_URL` — LiteLLM proxy URL (default: `http://localhost:4000`)
-- `LITELLM_MODEL` — model identifier (default: `anthropic/claude-sonnet-4-20250514`)
+- `LITELLM_MODEL` — model identifier (default: `anthropic/claude-sonnet-4-6`)
 
 Optional:
 - `SERPAPI_KEY` — for live web search (falls back to mock data without it)

@@ -1,3 +1,4 @@
+import "dotenv/config";
 import { InjuryMonitorAgent } from "./agent.js";
 import type { PlayerQuery } from "./types.js";
 

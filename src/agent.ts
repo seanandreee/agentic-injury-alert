@@ -83,13 +83,40 @@ export class InjuryMonitorAgent {
       iterations++;
       console.log(`\n--- Agent iteration ${iterations} ---`);
 
-      const response = await this.client.chat.completions.create({
-        model: this.model,
-        messages,
-        tools: toolDefinitions,
-        tool_choice: "auto",
-        temperature: config.agent.temperature,
-      });
+      let response;
+      try {
+        response = await this.client.chat.completions.create({
+          model: this.model,
+          messages,
+          tools: toolDefinitions,
+          tool_choice: "auto",
+          temperature: config.agent.temperature,
+        });
+      } catch (err: unknown) {
+        const e = err as { status?: number; message?: string; error?: { message?: string } };
+        const detail = e.error?.message ?? e.message ?? String(err);
+
+        if (e.status === 401) {
+          throw new Error(
+            `Authentication failed (401). Check that:\n` +
+            `  1. LiteLLM is running at ${config.litellm.baseUrl}\n` +
+            `  2. LITELLM_API_KEY in .env matches the master_key LiteLLM was started with\n` +
+            `  3. ANTHROPIC_API_KEY is exported in the shell where LiteLLM runs\n` +
+            `  Detail: ${detail}`
+          );
+        }
+        if (e.status === 500) {
+          throw new Error(
+            `LiteLLM returned 500 Internal Server Error. Common causes:\n` +
+            `  1. ANTHROPIC_API_KEY not exported in the LiteLLM proxy's shell environment\n` +
+            `  2. The API key is invalid or expired\n` +
+            `  3. Model "${this.model}" is misconfigured in litellm_config.yaml\n` +
+            `  Check the LiteLLM terminal for the full upstream error.\n` +
+            `  Detail: ${detail}`
+          );
+        }
+        throw err;
+      }
 
       const choice = response.choices[0];
       if (!choice?.message) {
@@ -168,27 +195,31 @@ export class InjuryMonitorAgent {
     content: string,
     players: PlayerQuery[]
   ): AgentReport {
-    // Extract JSON from <REPORT>...</REPORT> tags
-    const match = content.match(/<REPORT>([\s\S]*?)<\/REPORT>/);
-    if (match) {
-      try {
-        return JSON.parse(match[1]) as AgentReport;
-      } catch (err) {
-        console.warn("Failed to parse report JSON from tags:", err);
+    const extractors: (() => string | null)[] = [
+      // 1. <REPORT>...</REPORT> tags (strip markdown fences if present)
+      () => {
+        const m = content.match(/<REPORT>([\s\S]*?)<\/REPORT>/);
+        if (!m) return null;
+        return m[1].replace(/^```(?:json)?\s*/m, "").replace(/\s*```\s*$/m, "");
+      },
+      // 2. Any top-level JSON object containing "summary"
+      () => {
+        const m = content.match(/\{[\s\S]*"summary"[\s\S]*\}/);
+        return m?.[0] ?? null;
+      },
+    ];
+
+    for (const extract of extractors) {
+      const raw = extract();
+      if (raw) {
+        try {
+          return JSON.parse(raw) as AgentReport;
+        } catch {
+          // try next extractor
+        }
       }
     }
 
-    // Try to find any JSON object in the response
-    const jsonMatch = content.match(/\{[\s\S]*"summary"[\s\S]*\}/);
-    if (jsonMatch) {
-      try {
-        return JSON.parse(jsonMatch[0]) as AgentReport;
-      } catch (err) {
-        console.warn("Failed to parse report JSON:", err);
-      }
-    }
-
-    // Fall back to wrapping the raw text
     return {
       generatedAt: new Date().toISOString(),
       queriedPlayers: players,
