@@ -1,0 +1,22 @@
+{
+  "name": "sports-injury-monitor",
+  "version": "1.0.0",
+  "description": "AI agent that monitors player injury news and surfaces betting-relevant insights",
+  "main": "dist/index.js",
+  "type": "module",
+  "scripts": {
+    "build": "tsc",
+    "start": "node dist/index.js",
+    "dev": "tsx src/index.ts",
+    "eval": "tsx src/eval.ts"
+  },
+  "dependencies": {
+    "openai": "^4.73.0",
+    "zod": "^3.23.8"
+  },
+  "devDependencies": {
+    "@types/node": "^22.9.0",
+    "tsx": "^4.19.2",
+    "typescript": "^5.6.3"
+  }
+}
