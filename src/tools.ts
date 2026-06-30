@@ -124,6 +124,7 @@ export async function getTeamInjuries(
       return await serpApiSearch(query);
     } catch {
       // fall through to mock
+      // TODO: replace with SportsDataIO or ESPN API - live data integration
     }
   }
 

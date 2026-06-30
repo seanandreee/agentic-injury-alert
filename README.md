@@ -12,7 +12,7 @@ Given a list of players, the agent:
 2. Pulls the full team injury report for broader context
 3. Synthesizes findings into a structured JSON report with injury severity classifications and betting market impact assessments
 
-The agent decides autonomously how many tool calls to make and when it has enough information to stop — it's not a single LLM call with a template, it's a loop that reasons and acts.
+The agent decides autonomously how many tool calls to make and when it has enough information to stop. It's not a single LLM call with a template, it's a loop that reasons and acts.
 
 ---
 
@@ -90,7 +90,7 @@ LITELLM_API_KEY=any-string-here    # A key you make up — used to secure the lo
 LITELLM_BASE_URL=http://localhost:4000
 LITELLM_MODEL=anthropic/claude-sonnet-4-6
 
-# Optional — enables live web search (falls back to mock data without it)
+# Optional — enables live web search (falls back to mock data without it - this is what I did)
 SERPAPI_KEY=your-serpapi-key
 ```
 
@@ -132,7 +132,7 @@ npm run eval
 
 ## How the Agent Loop Works
 
-The agent uses a **ReAct** (Reasoning + Acting) pattern — the same loop used in production AI systems:
+The agent uses a **ReAct** (Reasoning + Acting) pattern, the same loop used in production AI systems:
 
 ```
 1. Send player list + system prompt to LLM via LiteLLM
@@ -178,6 +178,39 @@ Tool schemas are defined in `tools.ts` using the OpenAI function-calling format,
 Severity classifications: `minor` (day-to-day, soreness) | `moderate` (multi-week, sprains) | `severe` (season-ending, surgery)
 
 Betting markets assessed: spread, moneyline, over/under, player props, futures
+
+---
+
+## Example Output
+
+Running the agent against three players across NBA, NFL, and MLB (demo mode with mock data):
+
+```bash
+npm run dev
+```
+
+**Agent trace:**
+- Iteration 1: 6 tool calls fired in parallel — `search_injury_news` for each player, `get_team_injuries` for each team
+- Iteration 2: LLM synthesized all results into a final report
+
+**Report summary produced:**
+
+> The most urgent betting situation is LeBron James' Questionable status (left foot soreness) ahead of a high-profile Lakers-Celtics matchup — his absence would dramatically shift the spread and moneyline. Patrick Mahomes' ankle sprain is currently low-risk with X-rays negative, but his rushing props deserve a downward adjustment. Shohei Ohtani's elbow rehab is pitching-only and does not affect his DH role or hitting props, making him a reliable target in those markets.
+
+**Sample betting insight (LeBron James):**
+
+```json
+{
+  "player": "LeBron James",
+  "team": "Los Angeles Lakers",
+  "impactLevel": "high",
+  "affectedMarkets": ["spread", "moneyline", "over/under", "player props"],
+  "recommendation": "Fade the Lakers spread if LeBron is ruled out. If he plays, his props may carry value given potential rust or limited minutes.",
+  "reasoning": "LeBron is the Lakers' offensive engine. A Questionable tag against Boston shifts win probability significantly. Combined with Vanderbilt out indefinitely, his absence could swing a spread by 4-6 points."
+}
+```
+
+> Note: This run used mock data. Wire in a SerpAPI key for live web search results.
 
 ---
 
