@@ -79,10 +79,13 @@ export class InjuryMonitorAgent {
 
     let iterations = 0;
 
+    // ReAct agent loop: keep calling the LLM until it produces a final answer or we hit the iteration cap.
     while (iterations < config.agent.maxIterations) {
       iterations++;
       console.log(`\n--- Agent iteration ${iterations} ---`);
 
+      // Send the full conversation (system prompt, user query, and any prior tool results) to the LLM.
+      // LiteLLM proxies this request to the configured upstream model (Claude, GPT-4, etc).
       let response;
       try {
         response = await this.client.chat.completions.create({
@@ -126,7 +129,8 @@ export class InjuryMonitorAgent {
       const assistantMsg = choice.message;
       messages.push(assistantMsg as ChatCompletionMessageParam);
 
-      // If the model wants to call tools, execute them
+      // The LLM either responds with tool calls (it needs more data) or a final text answer.
+      // This block handles the tool-call case.
       if (assistantMsg.tool_calls && assistantMsg.tool_calls.length > 0) {
         console.log(
           `  Tool calls: ${assistantMsg.tool_calls.map((tc) => tc.function.name).join(", ")}`
@@ -139,7 +143,8 @@ export class InjuryMonitorAgent {
             .join("; "),
         });
 
-        // Execute each tool call and feed results back
+        // Run each tool and append its result as a "tool" role message.
+        // This gives the LLM full context on what each tool returned in the next iteration.
         for (const toolCall of assistantMsg.tool_calls) {
           const args = JSON.parse(toolCall.function.arguments) as Record<
             string,
@@ -163,10 +168,11 @@ export class InjuryMonitorAgent {
           });
         }
 
+        // Loop back to the top so the LLM can reason about the tool results it just received.
         continue;
       }
 
-      // No tool calls — check if the model produced a final answer
+      // No tool calls and there's content, the agent has enough information and is producing its final answer.
       if (assistantMsg.content) {
         console.log("  Agent produced final response");
         this.steps.push({
@@ -178,11 +184,12 @@ export class InjuryMonitorAgent {
         return report;
       }
 
-      // Neither tool calls nor content — shouldn't happen, but break to be safe
+      // Neither tool calls nor content, shouldn't happen, but break to be safe
       console.warn("  No tool calls and no content — ending loop");
       break;
     }
 
+    // Safety guard: cap iterations to prevent runaway loops. Return a fallback report instead.
     console.warn(`Agent hit max iterations (${config.agent.maxIterations})`);
     return this.fallbackReport(players);
   }
